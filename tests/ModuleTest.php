@@ -20,7 +20,7 @@ test('module.php exists with correct structure', function (): void {
     expect($module['bindings'])->toBeArray();
 });
 
-test('module.php binds QueueInterface via factory', function (): void {
+test('module.php binds QueueInterface directly to SyncQueue without a factory', function (): void {
     $modulePath = dirname(__DIR__) . '/module.php';
     $module = require $modulePath;
 

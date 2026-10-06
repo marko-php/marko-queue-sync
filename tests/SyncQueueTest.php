@@ -51,9 +51,23 @@ class ContainerAwareCaptureJob extends Job implements ContainerAwareJobInterface
         $this->receivedJobEnvelope = $jobEnvelope;
     }
 
+    public int $releaseCount = 0;
+
+    public bool $throwOnHandle = false;
+
+    public function releaseContainer(): void
+    {
+        $this->releaseCount++;
+    }
+
     public function handle(): void
     {
-        $this->hadBothWhenHandled = $this->receivedContainer !== null && $this->receivedJobEnvelope !== null;
+        $this->hadBothWhenHandled = $this->receivedContainer !== null && $this->receivedJobEnvelope !== null
+            && $this->releaseCount === 0;
+
+        if ($this->throwOnHandle) {
+            throw new RuntimeException('Capture job failed');
+        }
     }
 }
 
@@ -67,6 +81,22 @@ it('gives container-aware jobs the container and job envelope before handling th
     expect($job->receivedContainer)->toBe($container)
         ->and($job->receivedJobEnvelope)->toBe($jobEnvelope)
         ->and($job->hadBothWhenHandled)->toBeTrue();
+});
+
+it('releases the container from a container-aware job after SyncQueue runs it', function (): void {
+    $job = new ContainerAwareCaptureJob();
+
+    createSyncQueue()->push($job);
+
+    expect($job->releaseCount)->toBe(1);
+});
+
+it('releases the container from a container-aware job when it fails under SyncQueue', function (): void {
+    $job = new ContainerAwareCaptureJob();
+    $job->throwOnHandle = true;
+
+    expect(fn () => createSyncQueue()->push($job))->toThrow(JobFailedException::class)
+        ->and($job->releaseCount)->toBe(1);
 });
 
 it('implements QueueInterface', function (): void {

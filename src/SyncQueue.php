@@ -22,7 +22,8 @@ readonly class SyncQueue implements QueueInterface
 
     /**
      * Run the job immediately. Container-aware jobs (such as AsyncObserverJob)
-     * get the container and job envelope first, exactly as the Worker gives them.
+     * get the container and job envelope first, exactly as the Worker gives them,
+     * and release them once handle() returns or throws.
      *
      * @throws JobFailedException|RandomException
      */
@@ -43,6 +44,10 @@ readonly class SyncQueue implements QueueInterface
             $job->handle();
         } catch (Throwable $e) {
             throw JobFailedException::fromException($job::class, $e);
+        } finally {
+            if ($job instanceof ContainerAwareJobInterface) {
+                $job->releaseContainer();
+            }
         }
 
         return $id;
